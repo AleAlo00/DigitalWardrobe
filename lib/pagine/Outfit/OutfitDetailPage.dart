@@ -10,7 +10,7 @@ class OutfitDetailsPage extends StatelessWidget {
   final Map<String, dynamic> categoryStyle = {
     'Calzini': {'icon': Icons.checkroom, 'color': Colors.indigo},
     'Intimo': {'icon': Icons.checkroom, 'color': Colors.deepPurple},
-    'Scarpe': {'icon': Icons.checkroom, 'color': Colors.brown},
+    'Scarpe': {'icon': Icons.checkroom, 'color': Colors.grey},
     'Pantaloni': {'icon': Icons.checkroom, 'color': Colors.teal},
     'Magliette': {'icon': Icons.checkroom, 'color': Colors.lightGreen},
     'Felpe': {'icon': Icons.checkroom, 'color': Colors.green},
