@@ -47,10 +47,7 @@ class _FriendsInfoPageState extends State<FriendsInfoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Informazioni Amico'),
-        backgroundColor: Colors.redAccent,
-      ),
+      appBar: AppBar(title: const Text('Informazioni Amico')),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
