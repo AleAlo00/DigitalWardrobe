@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-  
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -20,7 +19,6 @@ class _HomePageState extends State<HomePage> {
   bool hasChangedName = false;
 
   final TextEditingController inviteCodeController = TextEditingController();
-  
 
   @override
   void initState() {
@@ -45,7 +43,7 @@ class _HomePageState extends State<HomePage> {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const AutoSizeText('Modifica nome'),
+        title: const Text('Modifica nome'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: 'Inserisci il tuo nome'),
@@ -53,7 +51,7 @@ class _HomePageState extends State<HomePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const AutoSizeText('Annulla'),
+            child: const Text('Annulla'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -64,16 +62,16 @@ class _HomePageState extends State<HomePage> {
               final newName = controller.text.trim();
               if (newName.isNotEmpty && newName != userName) {
                 await UserService().updateUserName(newName);
-                if (mounted) {
-                  setState(() {
-                    userName = newName;
-                    hasChangedName = true;
-                  });
-                }
-                Navigator.pop(context);
+                if (!mounted) return;
+                Navigator.pop(context); 
+                setState(() {
+                  userName = newName;
+                  hasChangedName = true;
+                });
               }
             },
-            child: const AutoSizeText('Salva'),
+
+            child: const Text('Salva'),
           ),
         ],
       ),

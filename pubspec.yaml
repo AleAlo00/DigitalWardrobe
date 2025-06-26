@@ -27,6 +27,7 @@ dependencies:
   auto_size_text: ^3.0.0
   flutter_material_color_picker: ^1.0.3
   flutter_colorpicker: ^1.0.3
+  easy_localization: ^3.0.0
   
 
 dev_dependencies:

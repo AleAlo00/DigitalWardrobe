@@ -8,13 +8,15 @@ class SettingsPage extends StatefulWidget {
   final VoidCallback showColorPicker;
   final void Function(Color newColor) onMainColorChanged;
 
-  const SettingsPage({
-    Key? key,
+  final settingsService = UserServiceSettings();
+
+  SettingsPage({
+    super.key,
     required this.onThemeToggle,
     required this.isDarkMode,
     required this.showColorPicker,
     required this.onMainColorChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -23,23 +25,26 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   String userName = 'User';
   bool isLoading = true;
-
   Color mainColor = Colors.blueAccent;
   bool autoThemeEnabled = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUserName();
-    _loadPreferences();
+    _loadUserData();
   }
 
-  Future<void> _loadUserName() async {
+  Future<void> _loadUserData() async {
     try {
       final name = await UserService().getUserName();
+      final colorHex = await widget.settingsService.getMainColorHex();
+      final autoTheme = await widget.settingsService.getAutoThemeEnabled();
+
       if (mounted) {
         setState(() {
           userName = name;
+          mainColor = hexToColor(colorHex);
+          autoThemeEnabled = autoTheme;
           isLoading = false;
         });
       }
@@ -53,38 +58,17 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _loadPreferences() async {
-    try {
-      final colorHex = await UserServiceSettings().getMainColorHex();
-      final autoTheme = await UserServiceSettings().getAutoThemeEnabled();
-
-      if (mounted) {
-        setState(() {
-          mainColor = hexToColor(colorHex);
-          autoThemeEnabled = autoTheme;
-        });
-      }
-    } catch (_) {
-      // ignora errori
-    }
+  Color hexToColor(String hex) {
+    hex = hex.replaceAll('#', '');
+    if (hex.length == 6) hex = 'FF$hex';
+    return Color(int.parse(hex, radix: 16));
   }
 
   Future<void> _toggleAutoTheme() async {
     final newValue = !autoThemeEnabled;
-    setState(() {
-      autoThemeEnabled = newValue;
-    });
-    await UserServiceSettings().updateAutoThemeEnabled(newValue);
+    setState(() => autoThemeEnabled = newValue);
+    await widget.settingsService.updateAutoThemeEnabled(newValue);
     widget.onThemeToggle();
-  }
-
-  /// Helper per convertire Color in stringa esadecimale "#RRGGBB"
-  Color hexToColor(String hex) {
-    hex = hex.replaceAll('#', '');
-    if (hex.length == 6) {
-      hex = 'FF$hex'; // aggiunge alfa se manca
-    }
-    return Color(int.parse(hex, radix: 16));
   }
 
   Future<void> _changeUserName() async {
@@ -98,13 +82,13 @@ class _SettingsPageState extends State<SettingsPage> {
           controller: controller,
           cursorColor: Colors.redAccent,
           style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             labelText: 'Inserisci il tuo nome',
-            labelStyle: const TextStyle(color: Colors.redAccent),
-            focusedBorder: const UnderlineInputBorder(
+            labelStyle: TextStyle(color: Colors.redAccent),
+            focusedBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.redAccent),
             ),
-            enabledBorder: const UnderlineInputBorder(
+            enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.redAccent),
             ),
           ),
@@ -127,11 +111,7 @@ class _SettingsPageState extends State<SettingsPage> {
               if (newName.isNotEmpty && newName != userName) {
                 try {
                   await UserService().updateUserName(newName);
-                  if (mounted) {
-                    setState(() {
-                      userName = newName;
-                    });
-                  }
+                  if (mounted) setState(() => userName = newName);
                   Navigator.pop(context);
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -153,7 +133,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
-    Navigator.of(context).pushReplacementNamed('/login');
+    if (mounted) Navigator.of(context).pushReplacementNamed('/login');
   }
 
   @override
@@ -173,15 +153,12 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 30),
 
-          // Bottone Logout
           _buildCustomButton(
             icon: Icons.logout,
             label: 'Logout',
             color: Colors.red,
             onTap: _signOut,
           ),
-
-          // Bottone per cambiare tema
           _buildCustomButton(
             icon: widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
             label: widget.isDarkMode ? 'Tema Chiaro' : 'Tema Scuro',
@@ -191,8 +168,6 @@ class _SettingsPageState extends State<SettingsPage> {
               widget.onThemeToggle();
             },
           ),
-
-          // Bottone per modificare nome
           _buildCustomButton(
             icon: Icons.edit,
             label: 'Modifica nome',
@@ -200,25 +175,81 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: _changeUserName,
           ),
 
-          // ExpansionTile con Account e Privacy
           const SizedBox(height: 20),
           _buildPersonalizationTile(),
           const SizedBox(height: 2),
-          _buildExpansionTile(),
+          _buildPrivacyTile(),
         ],
       ),
     );
   }
 
-  Widget _buildExpansionTile() {
-    final color = Colors.grey;
+  Widget _buildPrivacyTile() {
+    const color = Colors.grey;
 
+    return _buildTileContainer(
+      title: 'Account e Privacy',
+      icon: Icons.lock,
+      color: color,
+      children: [
+        _buildTile(Icons.people, 'Gestione amici', () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => GestioneAmiciPage()),
+          );
+        }),
+        _buildTile(Icons.email, 'Modifica email', () {
+          widget.settingsService.mostraDialogModificaEmail(context);
+        }),
+        _buildTile(Icons.lock_reset, 'Reimposta password', () {
+          widget.settingsService.inviaEmailReimpostaPassword(context);
+        }),
+        _buildTile(
+          Icons.delete_forever,
+          'Elimina account',
+          () => widget.settingsService.eliminaAccount(context),
+          color: Colors.redAccent,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPersonalizationTile() {
+    const color = Colors.blueAccent;
+
+    return _buildTileContainer(
+      title: 'Personalizzazione',
+      icon: Icons.palette,
+      color: color,
+      children: [
+        _buildTile(
+          Icons.color_lens,
+          'Colore principale',
+          widget.showColorPicker,
+          color: color,
+        ),
+        _buildTile(
+          Icons.brightness_auto,
+          'Tema automatico',
+          _toggleAutoTheme,
+          color: color,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTileContainer({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required List<Widget> children,
+  }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: color.withOpacity(0.15),
@@ -230,9 +261,10 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTileTheme(
-          data: const ExpansionTileThemeData(
-            iconColor: Colors.grey,
-            collapsedIconColor: Colors.grey,
+          data: ExpansionTileThemeData(
+            iconColor: color,
+            collapsedIconColor: color,
+            textColor: color.withOpacity(0.85),
           ),
           child: ExpansionTile(
             tilePadding: const EdgeInsets.symmetric(
@@ -252,14 +284,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.lock, color: Colors.white, size: 28),
+              child: Icon(icon, color: Colors.white, size: 28),
             ),
             title: Text(
-              'Account e Privacy',
+              title,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: color.withOpacity(0.8),
+                color: color.withOpacity(0.85),
               ),
             ),
             childrenPadding: const EdgeInsets.only(
@@ -267,19 +299,7 @@ class _SettingsPageState extends State<SettingsPage> {
               right: 16,
               bottom: 16,
             ),
-            children: [
-              const SizedBox(height: 8),
-              _buildTile(Icons.email, 'Modifica email', () {}),
-              _buildTile(Icons.lock_reset, 'Modifica password', () {}),
-              _buildTile(
-                Icons.delete_forever,
-                'Elimina account',
-                () {},
-                color: Colors.redAccent,
-              ),
-              _buildTile(Icons.people, 'Gestione amici', () {}),
-              _buildTile(Icons.visibility, 'Impostazioni di visibilità', () {}),
-            ],
+            children: children,
           ),
         ),
       ),
@@ -355,93 +375,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPersonalizationTile() {
-    final Color fixedColor =
-        Colors.blueAccent; // colore fisso, non legato a mainColor
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: fixedColor.withOpacity(0.1),
-        border: Border.all(color: fixedColor, width: 1.5),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: fixedColor.withOpacity(0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTileTheme(
-          data: ExpansionTileThemeData(
-            iconColor: fixedColor,
-            collapsedIconColor: fixedColor,
-            textColor: fixedColor.withOpacity(0.85),
-          ),
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 24,
-            ),
-            leading: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: fixedColor,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: fixedColor.withOpacity(0.6),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.palette, color: Colors.white, size: 28),
-            ),
-            title: Text(
-              'Personalizzazione',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: fixedColor.withOpacity(0.85),
-              ),
-            ),
-            childrenPadding: const EdgeInsets.only(
-              left: 16,
-              right: 16,
-              bottom: 16,
-            ),
-            children: [
-              const SizedBox(height: 8),
-
-              // Cambia colore principale
-              _buildTile(
-                Icons.color_lens,
-                'Colore principale',
-                widget.showColorPicker,
-                color: fixedColor,
-              ),
-
-              // Cambia lingua (da implementare)
-              _buildTile(Icons.language, 'Lingua', () {}, color: fixedColor),
-
-              // Tema automatico (toggle)
-              _buildTile(
-                Icons.brightness_auto,
-                'Tema automatico',
-                _toggleAutoTheme,
-                color: fixedColor,
-              ),
-            ],
-          ),
         ),
       ),
     );
