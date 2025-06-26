@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "181900385303",
+    "project_id": "digital-wardrobe-9468a",
+    "storage_bucket": "digital-wardrobe-9468a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:181900385303:android:68f41e4126dcf6ffa3d052",
+        "android_client_info": {
+          "package_name": "com.example.digital_wardrobe"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD09jTVQV9pD_Psoq6oC0BY5i1pzPn2Qfo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
