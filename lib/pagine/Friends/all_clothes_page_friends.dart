@@ -229,45 +229,66 @@ class _AllClothesPageFriendsState extends State<AllClothesPageFriends> {
                 ),
 
                 const SizedBox(width: 8),
-                PopupMenuButton<String>(
-                  onSelected: (val) {
-                    setState(() => _criterioOrdinamento = val);
-                    _filtraVestiti();
-                  },
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    popupMenuTheme: const PopupMenuThemeData(
+                      color: Colors.white, // Sfondo bianco fisso
+                    ),
                   ),
-                  color: Colors.white,
-                  elevation: 4,
-                  icon: Icon(
-                    Icons.filter_list_rounded,
-                    size: 28,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : Colors.black,
+                  child: PopupMenuButton<String>(
+                    onSelected: (val) {
+                      setState(() => _criterioOrdinamento = val);
+                      _filtraVestiti();
+                    },
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                    icon: Icon(
+                      Icons.filter_list_rounded,
+                      size: 28,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'nessuno',
+                        child: Text(
+                          'Nessun ordine',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'marca',
+                        child: Text(
+                          'Ordina per marca',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'colore',
+                        child: Text(
+                          'Ordina per colore',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'categoria',
+                        child: Text(
+                          'Ordina per categoria',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'taglia',
+                        child: Text(
+                          'Ordina per taglia',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                      ),
+                    ],
                   ),
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: 'nessuno',
-                      child: Text('Nessun ordine'),
-                    ),
-                    PopupMenuItem(
-                      value: 'marca',
-                      child: Text('Ordina per marca'),
-                    ),
-                    PopupMenuItem(
-                      value: 'colore',
-                      child: Text('Ordina per colore'),
-                    ),
-                    PopupMenuItem(
-                      value: 'categoria',
-                      child: Text('Ordina per categoria'),
-                    ),
-                    PopupMenuItem(
-                      value: 'taglia',
-                      child: Text('Ordina per taglia'),
-                    ),
-                  ],
                 ),
               ],
             ),
