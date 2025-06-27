@@ -45,6 +45,7 @@ class UserService {
     await docRef.set(userData, SetOptions(merge: true));
   }
 
+
   String _generateInviteCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final rand = Random();

@@ -22,6 +22,8 @@ void main() async {
     await UserService().ensureInviteCodeExists();
   }
 
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(MyApp());
 }
 

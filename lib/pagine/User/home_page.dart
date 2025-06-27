@@ -1,11 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:digital_wardrobe/GestioneDB/firestore_friends.dart';
 import 'package:digital_wardrobe/GestioneDB/firestore_users.dart';
 import 'package:digital_wardrobe/pagine/User/user_info_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,7 +27,10 @@ class _HomePageState extends State<HomePage> {
 
   File? _profileImage;
   String? _profileImageUrl;
+  String? _profileImageBase64;
+
   final TextEditingController inviteCodeController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -34,12 +42,190 @@ class _HomePageState extends State<HomePage> {
     final name = await UserService().getUserName();
     final code = await UserService().getInviteCode();
 
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final data = doc.data();
+
+      final imageUrl = data?['profileImageUrl'] ?? '';
+      final imageBase64 = data?['profileImageBase64'];
+
+      setState(() {
+        _profileImageUrl = imageUrl.isNotEmpty ? imageUrl : null;
+        _profileImageBase64 = imageBase64;
+      });
+    }
+
     setState(() {
       userName = name;
       inviteCode = code;
       hasChangedName = name != 'User';
       isLoading = false;
     });
+  }
+
+  Future<Uint8List?> loadProfileImage(String userId) async {
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get();
+
+    if (doc.exists &&
+        doc.data() != null &&
+        doc.data()!['profileImageBase64'] != null) {
+      String base64String = doc.data()!['profileImageBase64'];
+      return base64Decode(base64String);
+    }
+    return null;
+  }
+
+  Future<Uint8List?> compressImage(Uint8List imageData) async {
+    return await FlutterImageCompress.compressWithList(
+      imageData,
+      quality: 20, // puoi regolare da 0 a 100
+      format: CompressFormat.jpeg,
+    );
+  }
+
+  Future<void> _uploadProfileImage(File image) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final originalBytes = await image.readAsBytes();
+
+      final compressedBytes = await compressImage(originalBytes);
+      if (compressedBytes == null) return;
+
+      final base64String = base64Encode(compressedBytes);
+
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid);
+      await docRef.set({
+        'profileImageBase64': base64String,
+      }, SetOptions(merge: true));
+
+      setState(() {
+        _profileImageBase64 = base64String;
+        _profileImageUrl = null; // opzionale, se usavi url
+        _profileImage = image;
+      });
+    } catch (e) {
+      print("Errore nel caricamento immagine: $e");
+    }
+  }
+
+  Future<void> _pickImage() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Wrap(
+          runSpacing: 20,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.insert_drive_file),
+              title: const Text('Scegli da file'),
+              onTap: () async {
+                Navigator.pop(context);
+                final pickedFile = await _picker.pickImage(
+                  source: ImageSource.gallery,
+                );
+                if (pickedFile != null) {
+                  final file = File(pickedFile.path);
+                  setState(() {
+                    _profileImage = file;
+                  });
+                  await _uploadProfileImage(
+                    file,
+                  ); // passa solo il file, senza base64
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Scegli dalla galleria'),
+              onTap: () async {
+                Navigator.pop(context);
+                final pickedFile = await _picker.pickImage(
+                  source: ImageSource.gallery,
+                );
+                if (pickedFile != null) {
+                  final file = File(pickedFile.path);
+                  setState(() {
+                    _profileImage = file;
+                  });
+                  await _uploadProfileImage(file);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Scatta una foto'),
+              onTap: () async {
+                Navigator.pop(context);
+                final pickedFile = await _picker.pickImage(
+                  source: ImageSource.camera,
+                );
+                if (pickedFile != null) {
+                  final file = File(pickedFile.path);
+                  setState(() {
+                    _profileImage = file;
+                  });
+                  await _uploadProfileImage(file);
+                }
+              },
+            ),
+            if (_profileImage != null)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text(
+                  'Elimina foto',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _profileImage = null;
+                    _profileImageBase64 = null;
+                    _profileImageUrl = null;
+                  });
+                  // eventualmente cancella dal DB o aggiorna utente
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileImage() {
+    if (_profileImage != null) {
+      return CircleAvatar(
+        radius: 60,
+        backgroundImage: FileImage(_profileImage!),
+      );
+    } else if (_profileImageBase64 != null) {
+      Uint8List imageBytes = base64Decode(_profileImageBase64!);
+      return CircleAvatar(radius: 60, backgroundImage: MemoryImage(imageBytes));
+    } else if (_profileImageUrl != null && _profileImageUrl!.isNotEmpty) {
+      return CircleAvatar(
+        radius: 60,
+        backgroundImage: CachedNetworkImageProvider(_profileImageUrl!),
+      );
+    } else {
+      return const CircleAvatar(
+        radius: 60,
+        child: Icon(Icons.person, size: 60, color: Colors.red),
+      );
+    }
   }
 
   Future<void> _changeUserName() async {
@@ -81,7 +267,6 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
 
   Future<void> _sendFriendRequest() async {
     final code = inviteCodeController.text.trim();
@@ -171,43 +356,12 @@ class _HomePageState extends State<HomePage> {
               Stack(
                 alignment: Alignment.bottomRight,
                 children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundColor: Colors.red.shade100,
-                    child: ClipOval(
-                      child: SizedBox(
-                        width: 120,
-                        height: 120,
-                        child: _profileImage != null
-                            ? Image.file(_profileImage!, fit: BoxFit.cover)
-                            : (_profileImageUrl != null &&
-                                      _profileImageUrl!.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: _profileImageUrl!,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) =>
-                                          const Center(
-                                            child: CircularProgressIndicator(),
-                                          ),
-                                      errorWidget: (context, url, error) =>
-                                          const Icon(
-                                            Icons.person,
-                                            size: 100,
-                                            color: Colors.red,
-                                          ),
-                                    )
-                                  : const Icon(
-                                      Icons.person,
-                                      size: 100,
-                                      color: Colors.red,
-                                    )),
-                      ),
-                    ),
-                  ),
+                  _buildProfileImage(),
                   Positioned(
                     bottom: 4,
                     right: 4,
                     child: GestureDetector(
+                      onTap: _pickImage,
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
@@ -220,11 +374,17 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ],
                         ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
+
               const SizedBox(height: 20),
               AutoSizeText(
                 userName,
