@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:digital_wardrobe/GestioneDB/firestore_friends.dart';
 import 'package:digital_wardrobe/GestioneDB/firestore_users.dart';
 import 'package:digital_wardrobe/pagine/User/user_info_page.dart';
@@ -18,17 +20,20 @@ class _HomePageState extends State<HomePage> {
   bool isLoading = true;
   bool hasChangedName = false;
 
+  File? _profileImage;
+  String? _profileImageUrl;
   final TextEditingController inviteCodeController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadUserName();
+    _loadUserInfo();
   }
 
-  Future<void> _loadUserName() async {
+  Future<void> _loadUserInfo() async {
     final name = await UserService().getUserName();
     final code = await UserService().getInviteCode();
+
     setState(() {
       userName = name;
       inviteCode = code;
@@ -63,20 +68,20 @@ class _HomePageState extends State<HomePage> {
               if (newName.isNotEmpty && newName != userName) {
                 await UserService().updateUserName(newName);
                 if (!mounted) return;
-                Navigator.pop(context); 
+                Navigator.pop(context);
                 setState(() {
                   userName = newName;
                   hasChangedName = true;
                 });
               }
             },
-
             child: const Text('Salva'),
           ),
         ],
       ),
     );
   }
+
 
   Future<void> _sendFriendRequest() async {
     final code = inviteCodeController.text.trim();
@@ -163,10 +168,62 @@ class _HomePageState extends State<HomePage> {
         child: Center(
           child: Column(
             children: [
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: Colors.red.shade100,
-                child: const Icon(Icons.person, size: 100, color: Colors.red),
+              Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundColor: Colors.red.shade100,
+                    child: ClipOval(
+                      child: SizedBox(
+                        width: 120,
+                        height: 120,
+                        child: _profileImage != null
+                            ? Image.file(_profileImage!, fit: BoxFit.cover)
+                            : (_profileImageUrl != null &&
+                                      _profileImageUrl!.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: _profileImageUrl!,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) =>
+                                          const Center(
+                                            child: CircularProgressIndicator(),
+                                          ),
+                                      errorWidget: (context, url, error) =>
+                                          const Icon(
+                                            Icons.person,
+                                            size: 100,
+                                            color: Colors.red,
+                                          ),
+                                    )
+                                  : const Icon(
+                                      Icons.person,
+                                      size: 100,
+                                      color: Colors.red,
+                                    )),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.red.withOpacity(0.4),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               AutoSizeText(
@@ -178,7 +235,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 20),
-
               if (!hasChangedName)
                 GestureDetector(
                   onTap: _changeUserName,
@@ -207,7 +263,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-
               _buildCustomButton(
                 icon: Icons.info_outline,
                 label: 'Informazioni',
@@ -219,9 +274,7 @@ class _HomePageState extends State<HomePage> {
                 },
                 color: Colors.cyan,
               ),
-
               const SizedBox(height: 16),
-
               GestureDetector(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: inviteCode));
@@ -264,12 +317,10 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 30),
-
               TextField(
                 controller: inviteCodeController,
-                cursorColor: Colors.redAccent, // ← Cursore rosso
+                cursorColor: Colors.redAccent,
                 style: const TextStyle(color: Colors.black),
                 decoration: InputDecoration(
                   hintText: 'Inserisci codice invito amico',
@@ -296,34 +347,25 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 12),
-
               _buildCustomButton(
                 icon: Icons.send,
                 label: 'Invia richiesta amicizia',
                 onTap: _sendFriendRequest,
               ),
-
               const SizedBox(height: 30),
-
               _buildCustomButton(
                 icon: Icons.group,
                 label: 'Amici',
-                onTap: () {
-                  Navigator.pushNamed(context, '/friendsPage');
-                },
+                onTap: () => Navigator.pushNamed(context, '/friendsPage'),
                 color: Colors.green,
               ),
-
               const SizedBox(height: 5),
-
               _buildCustomButton(
                 icon: Icons.mail,
                 label: 'Richieste amicizia',
-                onTap: () {
-                  Navigator.pushNamed(context, '/friendRequestsPage');
-                },
+                onTap: () =>
+                    Navigator.pushNamed(context, '/friendRequestsPage'),
                 color: Colors.green,
               ),
             ],

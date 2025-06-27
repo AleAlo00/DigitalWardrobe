@@ -8,9 +8,14 @@ class UserService {
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
 
+  Future<void> logout() async {
+    await _auth.signOut();
+  }
+
   Future<void> saveUserData({
     required String name,
     required bool isDarkMode,
+    String? profileImageUrl,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -26,12 +31,18 @@ class UserService {
       codiceInvito = data['codiceInvito'] ?? '';
     }
 
-    await docRef.set({
+    final userData = {
       'userName': name,
       'email': user.email,
       'isDarkMode': isDarkMode,
       'codiceInvito': codiceInvito,
-    }, SetOptions(merge: true));
+    };
+
+    if (profileImageUrl != null) {
+      userData['profileImageUrl'] = profileImageUrl;
+    }
+
+    await docRef.set(userData, SetOptions(merge: true));
   }
 
   String _generateInviteCode() {
@@ -116,7 +127,6 @@ class UserService {
     final userDoc = await _db.collection('users').doc(userId).get();
     final userData = userDoc.data() ?? {};
 
-    // Vestiti
     final clothesSnap = await _db
         .collection('vestiti')
         .where('userId', isEqualTo: userId)
@@ -127,7 +137,6 @@ class UserService {
         .where((doc) => doc['preferito'] == true)
         .length;
 
-    // Amici: mantieni la lista originale senza forzare 0 se nulla
     final List<dynamic>? friendsList = userData['friends'] as List<dynamic>?;
 
     final totalFriends = friendsList?.length ?? 0;
@@ -142,10 +151,7 @@ class UserService {
 
   Future<int> getCurrentUserOutfitCount() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      // Utente non loggato, ritorna 0 o gestisci come preferisci
-      return 0;
-    }
+    if (user == null) return 0;
 
     try {
       final querySnapshot = await _db
