@@ -131,25 +131,6 @@ class _HomePageState extends State<HomePage> {
           runSpacing: 20,
           children: [
             ListTile(
-              leading: const Icon(Icons.insert_drive_file),
-              title: const Text('Scegli da file'),
-              onTap: () async {
-                Navigator.pop(context);
-                final pickedFile = await _picker.pickImage(
-                  source: ImageSource.gallery,
-                );
-                if (pickedFile != null) {
-                  final file = File(pickedFile.path);
-                  setState(() {
-                    _profileImage = file;
-                  });
-                  await _uploadProfileImage(
-                    file,
-                  ); // passa solo il file, senza base64
-                }
-              },
-            ),
-            ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Scegli dalla galleria'),
               onTap: () async {
@@ -190,14 +171,32 @@ class _HomePageState extends State<HomePage> {
                   'Elimina foto',
                   style: TextStyle(color: Colors.red),
                 ),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
+
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null) return;
+
+                  final docRef = FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid);
+
+                  try {
+                    final doc = await docRef.get();
+                    if (doc.exists) {
+                      await docRef.update({
+                        'profileImageUrl': FieldValue.delete(),
+                      });
+                    }
+                  } catch (e) {
+                    print('Errore nella rimozione dell\'immagine: $e');
+                  }
+
                   setState(() {
                     _profileImage = null;
                     _profileImageBase64 = null;
                     _profileImageUrl = null;
                   });
-                  // eventualmente cancella dal DB o aggiorna utente
                 },
               ),
           ],
